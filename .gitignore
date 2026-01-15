@@ -1,2 +1,4 @@
 # minha pasta de informações e testes
 testes
+__pycache__/
+*.pyc
