@@ -1,7 +1,9 @@
 import csv
 import os
+
 from datetime import datetime
 from abc import ABC, abstractmethod
+from service.reports import FinancialReporter
 
 
 class Transaction:
@@ -43,7 +45,7 @@ class CSVRepository(FinanceRepository):
         self.file_path = file_path
 
     def save(self, transaction: Transaction):
-        with open(self.file_path, "a", newline="\n", encoding="utf-8") as f:
+        with open(self.file_path, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(transaction.to_list())
 
@@ -100,7 +102,9 @@ class ConsoleUI:
 
 
 if __name__ == "__main__":
-    repo = CSVRepository("financial_data.csv")
+    repo = CSVRepository("data/financial_data.csv")
+    
+    reporter = FinancialReporter("data/financial_data.csv")
 
     while True:
         choice = ConsoleUI.show_menu()
@@ -118,6 +122,8 @@ if __name__ == "__main__":
             
             print(f"\n💲 Income: {total_income_fixed:.2f}")
             print(f"💰 Current Balance: {balance_remaining:.2f}")
+            
+            reporter.display_detailed_extract()
 
         elif choice == "3":
             print("👋 Goodbye!")
