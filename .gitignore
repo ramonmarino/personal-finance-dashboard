@@ -2,3 +2,8 @@
 testes
 __pycache__/
 *.pyc
+
+# Virtual Environment
+.venv/
+venv/
+env/
