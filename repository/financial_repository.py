@@ -38,3 +38,38 @@ class CSVRepository(FinancialRepository):
             return []
         with open(self.file_path, "r", encoding="utf-8") as f:
             return list(csv.DictReader(line.strip() for line in f))
+
+    def update(self, index: int, updated_transaction: Transaction):
+        """Updates a specific transaction by its index in the CSV."""
+        rows = self.get_all() 
+    
+        if 0 <= index < len(rows):
+            new_data = updated_transaction.to_list()
+        
+        
+        with open(self.file_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Date", "Category", "Description", "Type", "Amount"])
+            
+            for i, row in enumerate(rows):
+                if i == index:
+                    writer.writerow(new_data)
+                else:
+                    writer.writerow([row["Date"], row["Category"], row["Description"], row["Type"], row["Amount"]])
+            return True
+        return False
+    
+    def delete(self, index: int):
+        """Removes a transaction by its index and rewrites the CSV."""
+        rows = self.get_all() 
+    
+        if 0 <= index < len(rows):
+            rows.pop(index)
+                
+        with open(self.file_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Date", "Category", "Description", "Type", "Amount"])
+            for row in rows:
+                writer.writerow([row["Date"], row["Category"], row["Description"], row["Type"], row["Amount"]])
+            return True
+        return False

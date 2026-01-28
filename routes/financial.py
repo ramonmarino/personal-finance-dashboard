@@ -6,7 +6,6 @@ from decimal import Decimal
 from schema.transaction_shema import BalanceResponse, TransactionCreate
 
 
-
 router = APIRouter()
 repo = CSVRepository("data/financial_data.csv")
 
@@ -48,8 +47,35 @@ def create_transaction(transaction_data: TransactionCreate):
             transaction_data.amount
         ),  
     )
-
     
     repo.save(new_transaction)
 
     return {"message": "Transaction registered successfully!"}
+
+@router.put("/transactions/{index}")
+def update_transaction(index: int, transaction_data: TransactionCreate):
+    """Updates an existing transaction based on its list index."""
+
+    updated_transaction = Transaction(
+        category=transaction_data.category,
+        description=transaction_data.description,
+        transaction_type=transaction_data.transaction_type,
+        amount=float(transaction_data.amount),
+    )
+
+    sucess = repo.update(index,updated_transaction)
+
+    if not sucess:
+        raise HTTPException(status_code=404, detail="Transaction index not found")
+    
+    return {"messagem": "Transaction uptaded sucessfully!"}
+
+@router.delete("/transactions/{index}", status_code=204)
+def delete_transaction(index:int):
+    """Deletes an existing transaction based on its list index."""
+    success = repo.delete(index)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="Transaction index not found")
+    
+    return None 
