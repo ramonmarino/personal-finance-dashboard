@@ -1,82 +1,71 @@
 from decimal import Decimal
-
-from fastapi import APIRouter,HTTPException
-from service.reports import FinancialReporter
-from repository.financial_repository import CSVRepository
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from db.database import get_db
+from repository.financial_repository import SQLAlchemyRepository
 from models.transaction import Transaction
 from schema.transaction_shema import BalanceResponse, TransactionCreate
 
-
 router = APIRouter()
-repo = CSVRepository("data/financial_data.csv")
+
 
 @router.get("/balance", response_model=BalanceResponse)
-def get_balance():
-    """Calculates and returns the total income and current balance.
+def get_balance(db: Session = Depends(get_db)):
+    """Retrieve the financial balance summary.
+
+    Calculates the total income, total expenses, and the resulting current balance
+    by fetching all transaction records from the repository and filtering by type.
+
+    Args:
+        db (Session): The SQLAlchemy database session provided by FastAPI dependency.
 
     Returns:
-        dict: A JSON object containing total_income and current_balance.
+        dict: A dictionary containing the float values for total_income,
+            total_expense, and current_balance.
     """
-    data = repo.get_all()
-    total_income = sum(Decimal(row["Amount"]) for row in data if row["Type"] == "Income")
+    repo = SQLAlchemyRepository(db)
+    transactions = repo.get_all()
+
+    total_income = sum(
+        Decimal(str(t.amount)) for t in transactions if t.type == "income"
+    )
+
     total_expense = sum(
-        Decimal(row["Amount"]) for row in data if row["Type"] == "Expense"
+        Decimal(str(t.amount)) for t in transactions if t.type == "expense"
     )
 
     return {
-        "total_income": total_income,
-        "current_balance": total_income - total_expense,
+        "total_income": float(total_income),
+        "total_expense": float(total_expense),
+        "current_balance": float(total_income - total_expense),
     }
 
 
 @router.post("/transactions", status_code=201)
-def create_transaction(transaction_data: TransactionCreate):
-    """Registers a new financial transaction in the CSV database.
+def create_transaction(
+    transaction_data: TransactionCreate, db: Session = Depends(get_db)
+):
+    """Register a new financial transaction.
+
+    Processes the incoming transaction data, normalizes the transaction type
+    to a standardized lowercase format, and persists the entity in the database.
 
     Args:
-        transaction_data (TransactionCreate): Validated data from the request body.
+        transaction_data (TransactionCreate): The Pydantic schema containing
+            transaction details like description, amount, type, and category.
+        db (Session): The SQLAlchemy database session provided by FastAPI dependency.
 
     Returns:
-        dict: A success message.
+        dict: A confirmation message indicating the successful registration.
     """
-    
+    repo = SQLAlchemyRepository(db)
+
     new_transaction = Transaction(
         category=transaction_data.category,
         description=transaction_data.description,
-        transaction_type=transaction_data.transaction_type,
-        amount=float(
-            transaction_data.amount
-        ),  
-    )
-    
-    repo.save(new_transaction)
-
-    return {"message": "Transaction registered successfully!"}
-
-@router.put("/transactions/{index}")
-def update_transaction(index: int, transaction_data: TransactionCreate):
-    """Updates an existing transaction based on its list index."""
-
-    updated_transaction = Transaction(
-        category=transaction_data.category,
-        description=transaction_data.description,
-        transaction_type=transaction_data.transaction_type,
+        type=transaction_data.transaction_type.lower().strip(),
         amount=float(transaction_data.amount),
     )
 
-    sucess = repo.update(index,updated_transaction)
-
-    if not sucess:
-        raise HTTPException(status_code=404, detail="Transaction index not found")
-    
-    return {"messagem": "Transaction uptaded sucessfully!"}
-
-@router.delete("/transactions/{index}", status_code=204)
-def delete_transaction(index:int):
-    """Deletes an existing transaction based on its list index."""
-    success = repo.delete(index)
-    
-    if not success:
-        raise HTTPException(status_code=404, detail="Transaction index not found")
-    
-    return None 
+    repo.save(new_transaction)
+    return {"message": "Transaction registered successfully in Database!"}

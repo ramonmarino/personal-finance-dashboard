@@ -1,75 +1,68 @@
-import csv
-import os
 from abc import ABC, abstractmethod
-from models.transaction import (
-    Transaction,
-)  
+from typing import List, Optional
+from sqlalchemy.orm import Session
+from models.transaction import Transaction
+
 
 class FinancialRepository(ABC):
-    """Abstract base class for financial data storage."""
-
     @abstractmethod
-    def save(self, transaction: Transaction):
-        """Saves a single transaction to the storage."""
+    def save(self, transaction: Transaction) -> Transaction:
         pass
 
     @abstractmethod
-    def get_all(self):
-        """Retrieves all records from the storage."""
+    def get_all(self) -> List[Transaction]:
+        pass
+
+    @abstractmethod
+    def delete(self, transaction_id: int) -> bool:
         pass
 
 
-class CSVRepository(FinancialRepository):
-    """CSV implementation of the financial repository."""
+class SQLAlchemyRepository(FinancialRepository):
+    def __init__(self, db: Session) -> None:
+        """Initialize the repository with a database session.
 
-    def __init__(self, file_path: str):
-        """Initializes the repository with a file path."""
-        self.file_path = file_path
+        Args:
+            db (Session): The SQLAlchemy database session.
+        """
+        self.db: Session = db
 
-    def save(self, transaction: Transaction):
-        """Appends a transaction to the CSV file without adding empty lines."""
-        with open(self.file_path, "a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(transaction.to_list())
+    def save(self, transaction: Transaction) -> Transaction:
+        """Persist a transaction entity into the database.
 
-    def get_all(self):
-        """Reads all transactions from the CSV."""
-        if not os.path.exists(self.file_path):
-            return []
-        with open(self.file_path, "r", encoding="utf-8") as f:
-            return list(csv.DictReader(line.strip() for line in f))
+        Args:
+            transaction (Transaction): The transaction model instance to save.
 
-    def update(self, index: int, updated_transaction: Transaction):
-        """Updates a specific transaction by its index in the CSV."""
-        rows = self.get_all() 
-    
-        if 0 <= index < len(rows):
-            new_data = updated_transaction.to_list()
-        
-        
-        with open(self.file_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(["Date", "Category", "Description", "Type", "Amount"])
-            
-            for i, row in enumerate(rows):
-                if i == index:
-                    writer.writerow(new_data)
-                else:
-                    writer.writerow([row["Date"], row["Category"], row["Description"], row["Type"], row["Amount"]])
-            return True
-        return False
-    
-    def delete(self, index: int):
-        """Removes a transaction by its index and rewrites the CSV."""
-        rows = self.get_all() 
-    
-        if 0 <= index < len(rows):
-            rows.pop(index)
-                
-        with open(self.file_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(["Date", "Category", "Description", "Type", "Amount"])
-            for row in rows:
-                writer.writerow([row["Date"], row["Category"], row["Description"], row["Type"], row["Amount"]])
+        Returns:
+            Transaction: The persisted transaction instance with updated metadata.
+        """
+        self.db.add(transaction)
+        self.db.commit()
+        self.db.refresh(transaction)
+        return transaction
+
+    def get_all(self) -> List[Transaction]:
+        """Retrieve all transaction records from the database.
+
+        Returns:
+            List[Transaction]: A list of all transaction entities found.
+        """
+        return self.db.query(Transaction).all()
+
+    def delete(self, transaction_id: int) -> bool:
+        """Remove a transaction record by its unique identifier.
+
+        Args:
+            transaction_id (int): The primary key of the transaction to delete.
+
+        Returns:
+            bool: True if the transaction was found and deleted, False otherwise.
+        """
+        transaction: Optional[Transaction] = (
+            self.db.query(Transaction).filter(Transaction.id == transaction_id).first()
+        )
+        if transaction:
+            self.db.delete(transaction)
+            self.db.commit()
             return True
         return False

@@ -1,8 +1,11 @@
 from fastapi import FastAPI
-
 from fastapi.middleware.cors import CORSMiddleware
+from models.transaction import Transaction
 from routes.financial import router as financial_router
 from security.config import ALLOWED_ORIGINS
+from db.database import engine, Base
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Personal Finance API",
@@ -10,7 +13,6 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS Middleware configuration to handle cross-origin requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -19,20 +21,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Registering application routers
 app.include_router(financial_router, prefix="/api/v1")
 
 
 @app.get("/")
-def health_check():
-    """Verifies the operational status of the API.
+def health_check() -> dict[str, str]:
+    """Verify the operational status of the API.
 
-    This heartbeat endpoint confirms the server is running and reachable.
-    It serves as the primary check for monitoring tools.
+    Provides a heartbeat endpoint to confirm that the server instance is
+    active and responding to requests.
 
     Returns:
-        dict: A dictionary containing the API status and a
-            welcome message for the user.
+        dict[str, str]: A dictionary containing the online status and a
+            personalized welcome message.
     """
     return {
         "status": "online",
